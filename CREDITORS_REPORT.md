@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-A member-owned cooperative with $150K in pooled capital and $1M+ in term life death benefit collateral seeks a lending relationship. All death benefits are collateral-assigned to the cooperative via standard AMA/ACLI forms with A-rated carriers. The cooperative lends to members at 0% interest, backed by death benefit collateral that self-liquidates on the triggering event.
+A member-owned cooperative with $150K in pooled capital and $1M+ in term life death benefit collateral seeks a lending relationship. All death benefits are collateral-assigned to the cooperative via standard AMA/ACLI forms with A-rated carriers. The cooperative lends to members at 0% interest, backed by death benefit collateral that self-liquidates on the triggering event. Members earn 4% on available (unloaned) credit, funded by cooperative asset growth.
 
 ## Entity Structure
 
@@ -11,6 +11,41 @@ A member-owned cooperative with $150K in pooled capital and $1M+ in term life de
 - **Cooperative Pool**: Operating account, member contributions, lending
 
 No Life Insurance LLC. All policies are individually owned term life, collateral-assigned to the cooperative.
+
+## Balance Sheet (Bank-Style)
+
+### Assets (what the cooperative owns)
+
+| Asset | Day 1 | Month 12 | Month 60 |
+|-------|-------|----------|----------|
+| Cash (pool) | $150,000 | $163,000 | $198,000 |
+| Loans receivable | $0 | varies | varies |
+| Property equity | $0 | $0 | ~$45,000 |
+| **Total on-balance** | **$150,000** | **$163,000+** | **$243,000+** |
+
+### Off-Balance-Sheet (collateral)
+
+| Item | Day 1 | Month 12 | Month 60 |
+|------|-------|----------|----------|
+| Death benefit collateral | $1,000,000 | $2,000,000 | $6,000,000 |
+
+### Liabilities (what the cooperative owes members)
+
+| Liability | Description |
+|-----------|-------------|
+| Member equity claims | Pool value + property equity (returned on departure) |
+| Interest accrued | 4% on available credit, auto-applied to loan balances |
+| Founder capital return | $150K zero-interest loan, vesting 20%/yr over 5 years |
+
+### How Lending Grows the Balance Sheet
+
+When the cooperative lends $5K to a member:
+1. Cash decreases $5K, loans receivable increases $5K → total assets unchanged
+2. Member spends within cooperative (rent, member businesses) → cash comes back
+3. Cash restored + loans receivable still outstanding → **total assets grew**
+4. Pool can lend again → money multiplier effect (2.04×)
+
+**Money multiplier**: 15% reserves, 60% internal circulation = each dollar creates $2.04 in economic activity.
 
 ## Collateral: Death Benefit
 
@@ -90,8 +125,27 @@ At moderate leverage, death benefit covers outstanding credit 1.3× over.
 - Binding member obligation, eviction provisions in operating agreement
 
 ### Pool Growth
-- Pool earns 4%/yr in high-yield savings
+- Pool earns 4%/yr in high-yield savings (~$7,900/yr at $198K)
 - Loan repayments flow back to pool (zero-interest, but principal returns)
+
+### Interest Model
+- Members earn 4% on available credit (credit limit minus outstanding loans)
+- Annual interest liability at month 60: ~$21,000
+- Funded by: pool returns ($7,900) + property appreciation (~$36,000/yr) + mortgage paydown (~$15,000/yr)
+- Net cooperative income exceeds interest obligations
+
+## Interest on Available Credit
+
+Members earn 4%/yr on `(credit limit - outstanding loans)`. This incentivizes responsible borrowing and rewards consistent membership.
+
+| Member Type | Credit Limit | If No Loan | If 50% Used | If 75% Used |
+|------------|-------------|-----------|------------|------------|
+| Regular (month 12) | $1,200 | $48/yr | $24/yr | $12/yr |
+| Regular (month 60) | $6,000 | $240/yr | $120/yr | $60/yr |
+| $5K lump contributor | $25,100 | $1,004/yr | $502/yr | $251/yr |
+| Founder ($150K) | $375,000 | $15,000/yr | $7,500/yr | $3,750/yr |
+
+Interest earned auto-applies to outstanding loan balances, making loans self-retiring. This reduces default risk — members' loans shrink even during periods of financial hardship.
 
 ## Property Underwriting ($1.2M Brownstone)
 
@@ -115,6 +169,26 @@ Adjusted DSCR includes $1,040/mo member contributions as additional debt service
 - 52 members with binding contribution obligations
 - Carrying charges are mandatory — non-payment triggers forced buyout + eviction
 
+## Mortgage Reliability — Building Credit Track Record
+
+| Milestone | Achievement | Est. Rate |
+|-----------|-------------|-----------|
+| 6 months | Establish CDFI relationship | 7.0% |
+| 1 year | On-time payment history documented | 6.5% |
+| 2 years | Seasoned borrower, clean books | 6.0% |
+| 3 years | Track record + growing membership | 5.5% |
+| 5 years | Established cooperative, multiple revenue streams | 5.0% |
+
+### Impact on $960K Mortgage
+
+| Rate | Monthly Payment | Annual Savings vs 7% | 30-Year Savings |
+|------|----------------|---------------------|----------------|
+| 7.0% | $6,387 | (baseline) | — |
+| 6.0% | $5,756 | $7,575 | $227,239 |
+| 5.0% | $5,153 | $14,801 | $444,030 |
+
+Every basis point saved strengthens the cooperative's position for the next property.
+
 ## Risk Analysis
 
 ### Credit Risk (Member Loans)
@@ -125,6 +199,7 @@ Adjusted DSCR includes $1,040/mo member contributions as additional debt service
 | Member dies with outstanding loan | Death benefit pays loan in full — zero loss |
 | Mass default | Credit limits are 5× contributions; member has skin in the game |
 | Member borrows and disappears | Gradual credit unlock (5× contributions) prevents day-1 max borrowing |
+| Loan becomes unserviceable | Interest on available credit auto-applies to balance, reducing default risk |
 
 ### Credit Limit Model
 
@@ -136,6 +211,13 @@ Members cannot borrow unlimited amounts. Credit unlocks gradually:
 - **Maximum**: $75,000 (75% of $100K death benefit)
 
 A member would need to contribute $15,000 to reach the $75K cap. By that point, they have significant skin in the game.
+
+### Self-Retiring Loan Mechanism
+
+Interest earned on available credit auto-reduces loan balances. This provides built-in loss mitigation:
+- Even if a member stops making minimum payments, interest credits continue reducing the balance
+- At month 60 with $6K credit limit and $5K loan: ~$3.27/mo in interest credits auto-applied
+- The cooperative's own asset growth funds the loan reduction
 
 ### Property Risk
 
@@ -175,6 +257,7 @@ Even if 2 members die in one year: $5.77M in collateral remains. The portfolio e
 - Founder lump sums are **zero-interest loans** to the cooperative (capital return, not equity)
 - Members are **active participants** (governance, voting, committees) — not passive investors
 - No profit sharing, no dividends, no guaranteed returns
+- 4% on available credit is a membership benefit, not an investment return
 - Structure designed to avoid Howey test classification as investment contract
 
 ## What We're Looking For
@@ -190,5 +273,5 @@ Run the cooperative's financial model:
 uv run python -m coopsim --growth --micro --instruments hybrid --months 60 \
   --founders 2 --founder-amounts "150000" --founder-monthly 20 \
   --founder-coverage 500000 --property 1200000 --units 4 \
-  --lender-view --balance-sheet
+  --lender-view --balance-sheet --self-retiring --mortgage-track
 ```

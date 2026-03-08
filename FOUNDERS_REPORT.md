@@ -46,6 +46,27 @@ Your $150K lump sum unlocks credit immediately:
 
 You can borrow up to $375K from the cooperative at **zero interest**.
 
+### Interest on Available Credit
+
+You earn **4%/yr on your available credit** (credit limit minus any outstanding loans).
+
+| Scenario | Available Credit | Annual Earnings |
+|----------|-----------------|----------------|
+| No loan outstanding | $375,000 | $15,000/yr |
+| $100K loan | $275,000 | $11,000/yr |
+| $200K loan | $175,000 | $7,000/yr |
+| $375K loan (maxed) | $0 | $0/yr |
+
+**The incentive**: borrow only what you need. The more available credit you leave, the more you earn.
+
+### Self-Retiring Loans
+
+Interest earned on your available credit **auto-applies to your loan balance**. Your loans pay themselves down over time:
+
+- Borrow $50K → available credit = $325K → earn $13K/yr → $1,083/mo auto-applied to loan
+- Combined with your minimum payment ($20 + 1% of balance), loans retire significantly faster
+- The cooperative's growth pays part of your loan for you
+
 ### Housing Priority
 
 As a founder, you have priority for cooperative housing. Carrying charge ~$1,588/mo vs $2,500 market rent = **$912/mo savings**.
@@ -100,5 +121,5 @@ To get a higher cap, they'd need higher coverage. A couple contributing $50K+ mi
 ```bash
 uv run python -m coopsim --growth --micro --instruments hybrid --months 60 \
   --founders 2 --founder-amounts "150000" --founder-monthly 20 \
-  --founder-coverage 500000 --founder-view --loans --balance-sheet
+  --founder-coverage 500000 --founder-view --loans --balance-sheet --self-retiring
 ```
