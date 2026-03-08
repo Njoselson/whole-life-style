@@ -68,6 +68,7 @@ class HybridPool(Instrument):
         self._member_months: dict[str, int] = {}  # time-weighted equity tracking
         self._founding_member: dict[str, bool] = {}  # early member bonus (1.5x)
         self._total_contributions: dict[str, float] = {}  # all money in (monthly + lump)
+        self._outstanding_loans: dict[str, float] = {}  # current loan balance per member
         self._last_month: int = 0
 
     def _is_founder(self, member: MemberSchedule) -> bool:
@@ -231,6 +232,9 @@ class HybridPool(Instrument):
         # Credit limit calculation
         credit_info = self.member_credit_limit(member, month)
 
+        outstanding_loan = self._outstanding_loans.get(member, 0.0)
+        available_credit = max(0.0, credit_info["credit_limit"] - outstanding_loan)
+
         return {
             "preferred": preferred,
             "common": common,
@@ -244,6 +248,8 @@ class HybridPool(Instrument):
             "credit_limit": credit_info["credit_limit"],
             "total_contributions": credit_info["total_contributions"],
             "max_credit": credit_info["max_credit"],
+            "outstanding_loan": outstanding_loan,
+            "available_credit": available_credit,
         }
 
     def member_credit_limit(self, member: str, month: int) -> dict:
@@ -271,6 +277,34 @@ class HybridPool(Instrument):
             "coverage": coverage,
             "unlocked_raw": unlocked,
         }
+
+    def issue_loan(self, member: str, amount: float, month: int) -> dict:
+        """Issue a loan to a member from the pool.
+
+        Returns dict with loan details or error if over credit limit.
+        """
+        credit_info = self.member_credit_limit(member, month)
+        outstanding = self._outstanding_loans.get(member, 0.0)
+        available = credit_info["credit_limit"] - outstanding
+
+        if amount > available:
+            return {"ok": False, "error": "exceeds available credit",
+                    "available": available, "requested": amount}
+
+        self._outstanding_loans[member] = outstanding + amount
+        return {"ok": True, "amount": amount, "new_balance": outstanding + amount,
+                "available_after": available - amount}
+
+    def make_loan_payment(self, member: str, amount: float) -> dict:
+        """Record a loan payment from a member."""
+        outstanding = self._outstanding_loans.get(member, 0.0)
+        payment = min(amount, outstanding)
+        self._outstanding_loans[member] = outstanding - payment
+        return {"payment": payment, "new_balance": outstanding - payment}
+
+    def total_outstanding_loans(self, month: int) -> float:
+        """Total outstanding loans across all members."""
+        return sum(self._outstanding_loans.values())
 
     def member_equity(self, member: str, month: int) -> float:
         """Backward-compatible wrapper: returns total equity."""

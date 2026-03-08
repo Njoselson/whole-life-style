@@ -45,7 +45,7 @@
     - Zero-interest loans (credit unlocks with contributions)
     - Future housing priority
     - Cooperative membership + governance vote
-  - Show them the simulator: `uv run python -m coopsim --growth --micro --instruments hybrid --months 60 --founders 2 --founder-amounts "150000" --founder-monthly 20 --founder-coverage 500000 --founder-view --loans`
+  - Show them the simulator: `uv run python -m coopsim --growth --micro --instruments hybrid --months 60 --founders 2 --founder-amounts "150000" --founder-monthly 20 --founder-coverage 500000 --founder-view --loans --roadmap`
 - [ ] Each new member: buy $100K term life, sign collateral assignment, sign operating agreement
 - [ ] Start the contribution ledger — every payment documented
 - [ ] Monthly statements to all members
@@ -75,6 +75,7 @@
   - $150K+ pool + $2M death benefit collateral
   - Legal docs (operating agreement, buy-sell, collateral assignments)
   - Member roster with coverage amounts
+  - Bank-style balance sheet: `uv run python -m coopsim --growth --micro --instruments hybrid --months 60 --founders 2 --founder-amounts "150000" --founder-monthly 20 --founder-coverage 500000 --balance-sheet --mortgage-track`
 - [ ] Establish lending relationship (small loan first to build credibility)
 - [ ] Continue recruiting — target 20+ members
 
@@ -86,10 +87,11 @@
 - [ ] Form Property Holding LLC (when brownstone is under contract)
 - [ ] Identify $1.2M brownstone (4 units)
 - [ ] Lender package for mortgage:
-  - Run: `uv run python -m coopsim --growth --micro --instruments hybrid --months 60 --founders 2 --founder-amounts "150000" --founder-monthly 20 --founder-coverage 500000 --property 1200000 --units 4 --lender-view`
+  - Run: `uv run python -m coopsim --growth --micro --instruments hybrid --months 60 --founders 2 --founder-amounts "150000" --founder-monthly 20 --founder-coverage 500000 --property 1200000 --units 4 --lender-view --mortgage-track`
   - Pro forma: ~$1,588 carrying charge vs $2,500 market rent
   - Death benefit collateral backing the mortgage
   - Track record of on-time member contributions
+  - Mortgage reliability timeline showing path to better rates
 - [ ] Down payment from pool ($150K founder capital + accumulated contributions)
 - [ ] Close on property
 
@@ -102,6 +104,7 @@
 - [ ] Zero-interest loans available to all members from pool
 - [ ] Continue recruiting — every new member adds $100K death benefit collateral
 - [ ] Monthly loan repayments flow back to pool
+- [ ] Build on-time mortgage payment record for better terms on next property
 
 **Milestone: 37+ members, $4.5M death benefit, pool replenishing from carrying charges + dues.**
 
@@ -112,6 +115,8 @@
   - Authority to provide insurance directly
   - Path to CDFI certification
 - [ ] Save for brownstone #2 (carrying charges from building 1 fund down payment)
+  - Better mortgage rate from 2+ year track record (est. 5.5% → 5.0%)
+  - 30-year savings: $444K per $960K mortgage at 5% vs 7%
 - [ ] More housing members, more carrying charges, more collateral
 - [ ] Consider CDFI certification (federal grants, technical assistance)
 
@@ -138,6 +143,7 @@
 4. Any state-specific requirements for cooperative lending at 0% interest?
 5. What triggers the need for 501(c)(8) status vs operating as a mutual benefit corp?
 6. Any ERISA implications if housing members work for the cooperative?
+7. Does the zero-interest loan model trigger any lending regulations?
 
 ## Costs
 

@@ -54,9 +54,9 @@ def print_comparison(
         print(f"  Pool earns {tl.savings_rate:.1%}/yr (high-yield savings account)")
 
     if hybrid:
-        print(f"Hybrid Pool: term life for regular members + permanent life for founders")
+        print(f"Hybrid Pool: term life for all members")
         print(f"  Regular: ${hybrid.coverage_per_member:,.0f} term coverage @ ${hybrid._term_premium:.0f}/mo")
-        print(f"  Founders: ${hybrid.founder_coverage:,.0f} whole life coverage @ ${hybrid._whole_life_premium:.0f}/mo")
+        print(f"  Founders: ${hybrid.founder_coverage:,.0f} term coverage @ ${hybrid._founder_term_premium:.0f}/mo")
 
     if wl:
         print(f"Whole Life: ${wl.coverage_per_member:,.0f} coverage @ ${wl._premium_per_member:.0f}/mo")
@@ -130,7 +130,7 @@ def print_comparison(
         return 0.0
 
     def _cash_value(inst: Instrument) -> float:
-        if isinstance(inst, (WholeLifePool, HybridPool)):
+        if hasattr(inst, 'cash_value') and callable(inst.cash_value):
             return inst.cash_value(final)
         return 0.0
 

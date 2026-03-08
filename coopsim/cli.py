@@ -24,6 +24,8 @@ from coopsim.member_value import (
     print_founder_equity_report,
     print_coop_loan_report,
     print_member_comparison,
+    print_mortgage_reliability,
+    print_creditworthiness_roadmap,
 )
 
 
@@ -80,6 +82,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--coop-rate", type=float, default=0.06, help="Cooperative internal lending rate (default: 0.06)")
     parser.add_argument("--balance-sheet", action="store_true", help="Show cooperative balance sheet and credit tiers")
     parser.add_argument("--loans", action="store_true", help="Show zero-interest cooperative loan model")
+    parser.add_argument("--mortgage-track", action="store_true", help="Show mortgage reliability and credit track record")
+    parser.add_argument("--roadmap", action="store_true", help="Show creditworthiness roadmap: how loans create assets over time")
     parser.add_argument("--tiers", action="store_true", help="Show contribution tier comparison (pay more, build more)")
     return parser.parse_args(argv)
 
@@ -167,6 +171,35 @@ def main(argv: list[str] | None = None) -> None:
                 hybrid_inst=hybrid_inst,
                 month=args.months,
                 schedule=schedule,
+            )
+
+        if args.mortgage_track:
+            inst = instruments[0]
+            pool = inst.pool_value(args.months)
+            active = [e.member for e in schedule if e.month <= args.months]
+            has_db = hasattr(inst, 'total_death_benefit')
+            db = inst.total_death_benefit(args.months) if has_db else 0.0
+            prop_val = args.property if args.property else 1_200_000.0
+            print_mortgage_reliability(
+                months=args.months,
+                pool_value=pool,
+                total_death_benefit=db,
+                total_members=len(active),
+                member_contribution_monthly=args.monthly,
+                property_value=prop_val,
+            )
+
+        if args.roadmap:
+            inst = instruments[0]
+            inst_name = inst.name
+            sim_results = results.get(inst_name, [])
+            print_creditworthiness_roadmap(
+                results=sim_results,
+                schedule=schedule,
+                months=args.months,
+                founder_lump=founder_lump[0] if isinstance(founder_lump, list) else founder_lump,
+                founder_coverage=args.founder_coverage,
+                member_coverage=args.coverage,
             )
 
         if args.tiers:
@@ -364,9 +397,15 @@ def _print_balance_sheet(
     else:
         n_members = 52
 
+    # Pull loan data from hybrid pool if available
+    outstanding_loans = 0.0
+    if isinstance(inst, HybridPool):
+        outstanding_loans = inst.total_outstanding_loans(final)
+
     bs = CoopBalanceSheet(
         pool_value=inst.pool_value(final),
         total_death_benefit=inst.total_death_benefit(final) if has_db else 0.0,
         total_members=n_members,
+        outstanding_loans=outstanding_loans,
     )
     print_balance_sheet(bs)

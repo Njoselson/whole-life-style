@@ -12,7 +12,7 @@ def _has_death_benefit(inst: Instrument) -> bool:
 
 
 def _get_cash_value(inst: Instrument, month: int) -> float:
-    if isinstance(inst, (WholeLifePool, HybridPool)):
+    if hasattr(inst, 'cash_value') and callable(inst.cash_value):
         return inst.cash_value(month)
     return 0.0
 

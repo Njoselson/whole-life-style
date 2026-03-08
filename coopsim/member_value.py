@@ -197,14 +197,21 @@ class MemberValueSummary:
 
 @dataclass
 class CoopBalanceSheet:
-    """Cooperative balance sheet showing how death benefit creates lendable assets.
+    """Bank-style cooperative balance sheet.
 
-    The death benefit is a contingent asset — it pays out on death.
-    But for lending purposes, it's better than most collateral because:
-    1. It's GUARANTEED by an A-rated insurance company
-    2. It INCREASES lending capacity (not just secures existing loans)
-    3. On the triggering event (death), it SELF-LIQUIDATES — the loan gets paid
-    4. The probability of mass default (many members dying) is actuarially negligible
+    Assets = what the cooperative owns (cash + loans receivable + property equity)
+    Liabilities = what it owes (member equity claims + outstanding obligations)
+    Off-balance-sheet = death benefit collateral (contingent asset, not owned)
+
+    When the cooperative lends $5K to a member:
+    - Cash goes down $5K
+    - Loans receivable goes up $5K
+    - Total assets unchanged — but the money is now WORKING
+
+    When that $5K circulates back (member pays rent, buys from another member):
+    - Cash goes back up
+    - Loans receivable still there
+    - Total assets GROW — this is the money multiplier
     """
 
     pool_value: float = 200_000.0
@@ -213,12 +220,47 @@ class CoopBalanceSheet:
     reserve_ratio: float = 0.15
     annual_mortality_rate: float = 0.001  # ~0.1% at age 35
 
+    # Loan tracking
+    outstanding_loans: float = 0.0  # total loans issued to members
+
+    # Property
+    property_equity: float = 0.0  # mortgage principal paid down
+    property_value: float = 0.0  # current property value (for appreciation)
+
+    # Money multiplier
+    internal_circulation: float = 0.60  # fraction of loans spent within cooperative
+
+    @property
+    def cash_on_hand(self) -> float:
+        return self.pool_value
+
+    @property
+    def total_on_balance_assets(self) -> float:
+        return self.cash_on_hand + self.outstanding_loans + self.property_equity
+
     @property
     def assets(self) -> dict[str, float]:
+        result: dict[str, float] = {
+            "Cash (pool)": self.cash_on_hand,
+            "Loans receivable": self.outstanding_loans,
+        }
+        if self.property_equity > 0:
+            result["Property equity"] = self.property_equity
+        result["Total on-balance assets"] = self.total_on_balance_assets
+        return result
+
+    @property
+    def off_balance_sheet(self) -> dict[str, float]:
         return {
-            "Pool (cash)": self.pool_value,
             "Death benefit collateral": self.total_death_benefit,
-            "Total assets": self.pool_value + self.total_death_benefit,
+        }
+
+    @property
+    def liabilities(self) -> dict[str, float]:
+        total_member_equity = self.pool_value + self.property_equity
+        return {
+            "Member equity claims": total_member_equity,
+            "Total liabilities": total_member_equity,
         }
 
     @property
@@ -238,6 +280,24 @@ class CoopBalanceSheet:
         per_member = self.total_death_benefit / self.total_members if self.total_members > 0 else 0
         return self.expected_annual_deaths * per_member
 
+    @property
+    def money_multiplier(self) -> float:
+        """How much economic activity each pool dollar creates.
+
+        When a loan is spent within the cooperative, it comes back as a deposit
+        that can be lent again. Same as fractional reserve banking.
+        """
+        lendable_pct = 1 - self.reserve_ratio
+        recirculation = lendable_pct * self.internal_circulation
+        if recirculation >= 1:
+            return float("inf")
+        return 1 / (1 - recirculation)
+
+    @property
+    def effective_economic_activity(self) -> float:
+        """Total economic activity created by the pool + loans."""
+        return (self.cash_on_hand + self.outstanding_loans) * self.money_multiplier
+
     def credit_tiers(self) -> list[dict]:
         """Show credit capacity at different leverage levels."""
         tiers = []
@@ -250,7 +310,6 @@ class CoopBalanceSheet:
             db_credit = self.total_death_benefit * pct
             total_credit = self.lendable_pool + db_credit
             per_member = total_credit / self.total_members if self.total_members > 0 else 0
-            # Coverage ratio: how many times death benefit covers outstanding credit
             coverage = self.total_death_benefit / total_credit if total_credit > 0 else float("inf")
             tiers.append({
                 "pct": pct,
@@ -396,59 +455,99 @@ def print_death_scenario(ds: DeathScenario) -> None:
 
 
 def print_balance_sheet(bs: CoopBalanceSheet) -> None:
-    """Print cooperative balance sheet and credit analysis."""
+    """Print bank-style cooperative balance sheet."""
     print()
-    print("=" * 70)
-    print("COOPERATIVE BALANCE SHEET — HOW YOUR $20 BECOMES REAL MONEY")
-    print("=" * 70)
+    print("=" * 75)
+    print("COOPERATIVE BALANCE SHEET — BANK-STYLE")
+    print("Assets = what we own. Liabilities = what we owe. The cooperative IS a bank.")
+    print("=" * 75)
 
-    print(f"\n--- Assets ---")
+    # Assets
+    print(f"\n--- ASSETS (what the cooperative owns) ---")
     for label, val in bs.assets.items():
-        marker = "  " if "Total" not in label else ">>"
+        marker = ">>" if "Total" in label else "  "
         print(f"  {marker} {label:<35} ${val:>14,.0f}")
 
-    print(f"\n--- Why the Death Benefit Is a Real Asset ---")
-    print(f"  It's not theoretical. It's a contract with an A-rated insurer.")
-    print(f"  If a member dies → insurance company pays out immediately.")
-    print(f"  If a member defaults on a loan → death benefit covers the balance.")
-    print(f"  The collateral is BETTER than property — no foreclosure, no auction,")
-    print(f"  no depreciation. Just a guaranteed check.")
+    # Off-balance-sheet
+    print(f"\n--- OFF-BALANCE-SHEET (collateral, not owned) ---")
+    for label, val in bs.off_balance_sheet.items():
+        print(f"     {label:<35} ${val:>14,.0f}")
+    print(f"     {'':35} (contingent — pays on death)")
 
-    print(f"\n--- Actuarial Safety ---")
+    # Liabilities
+    print(f"\n--- LIABILITIES (what the cooperative owes members) ---")
+    for label, val in bs.liabilities.items():
+        marker = ">>" if "Total" in label else "  "
+        print(f"  {marker} {label:<35} ${val:>14,.0f}")
+
+    # How lending grows the balance sheet
+    if bs.outstanding_loans > 0:
+        print(f"\n--- HOW LENDING GROWS THE BALANCE SHEET ---")
+        print(f"  Before lending:")
+        print(f"    Cash:                           ${bs.cash_on_hand + bs.outstanding_loans:>14,.0f}")
+        print(f"    Loans receivable:               ${'0':>13}")
+        print(f"    Total:                          ${bs.cash_on_hand + bs.outstanding_loans:>14,.0f}")
+        print(f"  After ${bs.outstanding_loans:,.0f} in loans issued:")
+        print(f"    Cash:                           ${bs.cash_on_hand:>14,.0f}")
+        print(f"    Loans receivable:               ${bs.outstanding_loans:>14,.0f}")
+        print(f"    Total:                          ${bs.cash_on_hand + bs.outstanding_loans:>14,.0f}")
+        print(f"  But when loans circulate back (rent, member businesses):")
+        print(f"    Cash:                           ${bs.cash_on_hand + bs.outstanding_loans:>14,.0f} (came back)")
+        print(f"    Loans receivable:               ${bs.outstanding_loans:>14,.0f} (still owed)")
+        print(f"    Total:                          ${bs.cash_on_hand + bs.outstanding_loans * 2:>14,.0f} (GREW)")
+    else:
+        print(f"\n--- HOW LENDING CREATES MONEY ---")
+        lendable = bs.lendable_pool
+        print(f"  Pool cash:              ${bs.pool_value:>14,.0f}")
+        print(f"  Reserves (15%):         ${bs.required_reserves:>14,.0f}")
+        print(f"  Lendable:               ${lendable:>14,.0f}")
+        print()
+        print(f"  When ${lendable:,.0f} is lent and spent within the cooperative:")
+        print(f"    Cash comes back → can be lent again → money multiplier")
+
+    # Money multiplier
+    print(f"\n--- MONEY MULTIPLIER ---")
+    print(f"  Reserve ratio:          {bs.reserve_ratio:.0%} (kept liquid)")
+    print(f"  Internal circulation:   {bs.internal_circulation:.0%} (spent within cooperative)")
+    print(f"  Money multiplier:       {bs.money_multiplier:.2f}x")
+    total_activity = bs.effective_economic_activity
+    print(f"  ${bs.cash_on_hand + bs.outstanding_loans:,.0f} in assets → ${total_activity:,.0f} in economic activity")
+    print()
+    print(f"  This is how banks work. You deposit $100, the bank lends $85,")
+    print(f"  the borrower spends it, the recipient deposits it, the bank lends")
+    print(f"  $72 of that... Each dollar works {bs.money_multiplier:.1f} times.")
+    print(f"  Except here: YOU own the bank. The spread stays with you.")
+
+    # Actuarial safety
+    print(f"\n--- ACTUARIAL SAFETY ---")
     print(f"  Members:                  {bs.total_members}")
     print(f"  Annual mortality rate:    {bs.annual_mortality_rate:.2%} (age ~35)")
     print(f"  Expected deaths/year:     {bs.expected_annual_deaths:.2f}")
     print(f"  Expected payout/year:     ${bs.expected_annual_death_benefit_payout:>10,.0f}")
-    print(f"  Total death benefit:      ${bs.total_death_benefit:>10,.0f}")
-    print(f"  Even if 2 members die:    ${bs.total_death_benefit - 2 * bs.total_death_benefit / bs.total_members:>10,.0f} remaining")
+    print(f"  Death benefit remaining")
+    print(f"    after 1 death:          ${bs.total_death_benefit - bs.total_death_benefit / bs.total_members:>10,.0f}")
+    print(f"    after 2 deaths:         ${bs.total_death_benefit - 2 * bs.total_death_benefit / bs.total_members:>10,.0f}")
 
-    print(f"\n--- Lending Capacity ---")
-    print(f"  Pool value:               ${bs.pool_value:>14,.0f}")
-    print(f"  Reserves ({bs.reserve_ratio:.0%}):            ${bs.required_reserves:>14,.0f}")
-    print(f"  Lendable from pool:       ${bs.lendable_pool:>14,.0f}")
-
-    print(f"\n--- Credit Tiers: How Much Can You Lend? ---")
+    # Credit tiers
+    print(f"\n--- LENDING CAPACITY (death benefit backed) ---")
     print(f"  {'Tier':<16} {'DB Used':>10} {'Total Credit':>14} {'Per Member':>12} {'Coverage':>10} {'Risk':>10}")
     print(f"  {'-'*16} {'-'*10} {'-'*14} {'-'*12} {'-'*10} {'-'*10}")
     for t in bs.credit_tiers():
         print(f"  {t['label']:<16} {t['pct']:>9.0%} ${t['total_credit']:>13,.0f} ${t['per_member']:>11,.0f} {t['coverage_ratio']:>9.1f}x {t['risk']:>10}")
 
-    print(f"\n--- What This Means ---")
-    tiers = bs.credit_tiers()
-    conservative = tiers[0]
-    moderate = tiers[1]
-    print(f"  At MODERATE leverage (75% of death benefit):")
-    print(f"    Total credit capacity:  ${moderate['total_credit']:>12,.0f}")
-    print(f"    Per member credit line: ${moderate['per_member']:>12,.0f}")
-    print(f"    Coverage ratio:         {moderate['coverage_ratio']:.1f}x (death benefit covers loans {moderate['coverage_ratio']:.1f} times over)")
-    print(f"")
-    print(f"  The cooperative has ${bs.total_death_benefit:,.0f} in guaranteed collateral.")
-    print(f"  A bank with ${bs.pool_value:,.0f} in deposits can only lend ~${bs.lendable_pool:,.0f}.")
-    print(f"  The cooperative can lend ${moderate['total_credit']:,.0f} because the death benefit backs it.")
-    print(f"  That's the money creation. Every member who joins adds ${bs.total_death_benefit / bs.total_members:,.0f}")
-    print(f"  in collateral for just ${bs.pool_value / bs.total_members / (120/12):,.0f}/mo.")
+    moderate = bs.credit_tiers()[1]
+    print(f"\n--- THE BOTTOM LINE ---")
+    print(f"  On-balance assets:        ${bs.total_on_balance_assets:>14,.0f}")
+    print(f"  Death benefit collateral: ${bs.total_death_benefit:>14,.0f}")
+    print(f"  Lending capacity (75%):   ${moderate['total_credit']:>14,.0f}")
+    print(f"  Money multiplier:         {bs.money_multiplier:>13.2f}x")
+    print(f"  Economic activity:        ${total_activity:>14,.0f}")
     print()
-    print("=" * 70)
+    print(f"  Every member who joins adds ${bs.total_death_benefit / bs.total_members:,.0f} in collateral.")
+    print(f"  Every loan issued grows the balance sheet.")
+    print(f"  Every dollar that circulates back multiplies.")
+    print()
+    print("=" * 75)
 
 
 def print_member_value(summary: MemberValueSummary, loan_amount: float = 5_000.0) -> None:
@@ -1145,9 +1244,385 @@ def print_member_comparison(
     print(f"\n--- Why Non-Housing Members Join ---")
     print(f"  1. Zero-interest loans NOW — credit unlocks with $20/mo contributions")
     print(f"  2. Future housing priority — as coop buys more brownstones, you're first in line")
-    print(f"  3. Community + governance — one person, one vote, you shape the cooperative")
-    print(f"  4. Pool equity grows at {pool_return_rate:.0%}/yr on your contributions")
-    print(f"  5. ${coverage / 1000:.0f}K life insurance at group rates")
-    print(f"  6. Credit score improvement (~168 points average from MAF model)")
+    print(f"  4. Community + governance — one person, one vote, you shape the cooperative")
+    print(f"  5. Pool equity grows at {pool_return_rate:.0%}/yr on your contributions")
+    print(f"  6. ${coverage / 1000:.0f}K life insurance at group rates")
+    print(f"  7. Credit score improvement (~168 points average from MAF model)")
     print()
     print("=" * 80)
+
+
+def print_mortgage_reliability(
+    months: int = 60,
+    pool_value: float = 198_000.0,
+    total_death_benefit: float = 6_000_000.0,
+    total_members: int = 52,
+    member_contribution_monthly: float = 20.0,
+    property_value: float = 1_200_000.0,
+) -> None:
+    """Show how the cooperative builds credit track record for better mortgage terms.
+
+    The cooperative's goal: prove to lenders that it's a reliable borrower.
+    Better track record → lower rates → cheaper mortgage → more saved for members.
+    """
+    print()
+    print("=" * 80)
+    print("MORTGAGE RELIABILITY — BUILDING CREDIT FOR BETTER TERMS")
+    print("Every on-time payment makes the next loan cheaper.")
+    print("=" * 80)
+
+    # Credit track record milestones
+    milestones = [
+        (6, "6 months", "Establish relationship with CDFI", "7.0%", "6.5%"),
+        (12, "1 year", "On-time payment history documented", "6.5%", "6.0%"),
+        (24, "2 years", "Seasoned borrower, clean books", "6.0%", "5.5%"),
+        (36, "3 years", "Track record + growing membership", "5.5%", "5.0%"),
+        (60, "5 years", "Established cooperative, multiple revenue streams", "5.0%", "4.5%"),
+    ]
+
+    print(f"\n--- Credit Track Record Timeline ---")
+    print(f"  {'Milestone':<12} {'Achievement':<50} {'Est. Rate':>10}")
+    print(f"  {'-'*12} {'-'*50} {'-'*10}")
+    for _m, label, achievement, rate_est, _next in milestones:
+        print(f"  {label:<12} {achievement:<50} {rate_est:>10}")
+
+    # Impact on mortgage payment
+    mortgage_amount = property_value * 0.80  # 80% LTV
+    print(f"\n--- Impact on ${property_value / 1_000_000:.1f}M Brownstone Mortgage (${mortgage_amount:,.0f}) ---")
+    print(f"  {'Rate':>6} {'Monthly Payment':>16} {'Annual Savings':>15} {'30yr Savings':>13}")
+    print(f"  {'-'*6} {'-'*16} {'-'*15} {'-'*13}")
+
+    base_rate = 0.07
+    for rate in [0.07, 0.065, 0.06, 0.055, 0.05, 0.045]:
+        r = rate / 12
+        payment = mortgage_amount * (r * (1 + r) ** 360) / ((1 + r) ** 360 - 1)
+        base_r = base_rate / 12
+        base_payment = mortgage_amount * (base_r * (1 + base_r) ** 360) / ((1 + base_r) ** 360 - 1)
+        annual_savings = (base_payment - payment) * 12
+        total_savings = annual_savings * 30
+        savings_str = f"${annual_savings:>12,.0f}" if annual_savings > 0 else f"{'(baseline)':>13}"
+        total_str = f"${total_savings:>10,.0f}" if total_savings > 0 else f"{'':>13}"
+        print(f"  {rate:>5.1%} ${payment:>14,.0f} {savings_str} {total_str}")
+
+    # How to build the track record
+    monthly_contributions = total_members * member_contribution_monthly
+    annual_contributions = monthly_contributions * 12
+
+    print(f"\n--- How the Cooperative Builds Reliability ---")
+    print(f"  1. Consistent member contributions: ${monthly_contributions:,.0f}/mo (${annual_contributions:,.0f}/yr)")
+    print(f"  2. Growing membership: each new member adds ${100_000:,.0f} in collateral")
+    print(f"  3. Clean books: monthly statements, audited financials, meeting minutes")
+    print(f"  4. Death benefit collateral: ${total_death_benefit:,.0f} backing all obligations")
+    print(f"  5. Reserve maintenance: 15% liquid reserve always maintained")
+    print(f"  6. Diversified revenue: contributions + carrying charges + pool returns")
+
+    print(f"\n--- What Lenders Want to See ---")
+    print(f"  Before first mortgage:")
+    print(f"    - 12+ months on-time contribution history")
+    print(f"    - ${pool_value:,.0f}+ in reserves")
+    print(f"    - Active collateral assignments with A-rated carriers")
+    print(f"    - Clean operating agreement and buy-sell")
+    print(f"    - DSCR > 1.0 on proposed mortgage")
+    print()
+    print(f"  For second mortgage (better terms):")
+    print(f"    - 24+ months on-time mortgage payments on first property")
+    print(f"    - Growing membership (more collateral)")
+    print(f"    - Carrying charges covering 100% of first property costs")
+    print(f"    - Larger down payment from accumulated pool + carrying charge surplus")
+
+    # Down payment accumulation
+    print(f"\n--- Down Payment Accumulation ---")
+    print(f"  Every month, the cooperative accumulates capital for the next property.")
+    monthly_rate = (1 + 0.04) ** (1 / 12) - 1
+    print(f"  {'Source':<30} {'Monthly':>10} {'Year 1':>10} {'Year 3':>10} {'Year 5':>10}")
+    print(f"  {'-'*30} {'-'*10} {'-'*10} {'-'*10} {'-'*10}")
+
+    sources = [
+        ("Member contributions", monthly_contributions),
+        ("Pool returns (4%/yr)", pool_value * 0.04 / 12),
+    ]
+    for label, monthly in sources:
+        y1 = monthly * 12
+        y3 = monthly * 36
+        y5 = monthly * 60
+        print(f"  {label:<30} ${monthly:>8,.0f} ${y1:>8,.0f} ${y3:>8,.0f} ${y5:>8,.0f}")
+
+    total_monthly = sum(m for _, m in sources)
+    for yr, n in [(1, 12), (3, 36), (5, 60)]:
+        if monthly_rate > 0:
+            fv = total_monthly * (((1 + monthly_rate) ** n - 1) / monthly_rate)
+        else:
+            fv = total_monthly * n
+
+    print(f"  {'Total accumulated':<30} ${total_monthly:>8,.0f} ", end="")
+    for n in [12, 36, 60]:
+        if monthly_rate > 0:
+            fv = total_monthly * (((1 + monthly_rate) ** n - 1) / monthly_rate)
+        else:
+            fv = total_monthly * n
+        print(f"${fv:>8,.0f} ", end="")
+    print()
+
+    print(f"\n--- The Virtuous Cycle ---")
+    print(f"  More down payment → lower LTV → better rate → lower payment")
+    print(f"  Lower payment → more surplus → faster accumulation → next property sooner")
+    print(f"  More properties → more members → more collateral → even better terms")
+    print()
+    print("=" * 80)
+
+
+def print_creditworthiness_roadmap(
+    results: list[dict] | None = None,
+    schedule: list | None = None,
+    months: int = 60,
+    founder_lump: float = 150_000.0,
+    founder_coverage: float = 500_000.0,
+    member_coverage: float = 100_000.0,
+    pool_return_rate: float = 0.04,
+) -> None:
+    """Show how creditworthiness evolves phase by phase.
+
+    At each growth stage: balance sheet snapshot, internal lending capacity,
+    external loan targets, and what to do with the money.
+    """
+    print()
+    print("=" * 85)
+    print("CREDITWORTHINESS ROADMAP — FROM SEED CAPITAL TO MULTIPLE PROPERTIES")
+    print("How loans create assets, and assets unlock bigger loans.")
+    print("=" * 85)
+
+    print(f"\n--- The Core Loop ---")
+    print(f"  Members pay $20/mo → pool grows → pool lends to members → loans = assets")
+    print(f"  Loans are backed by death benefit (20x overcollateralized)")
+    print(f"  More assets + track record → qualify for bigger external loans")
+    print(f"  External loans → buy property → property = asset → even more creditworthy")
+
+    # Define phases with targets
+    phases = [
+        {
+            "name": "Seed",
+            "month": 1,
+            "members": 2,
+            "description": "Founding couple deposits $150K, buys term life",
+            "death_benefit_calc": lambda m: 2 * founder_coverage,
+            "pool_est": lambda m: founder_lump + (2 * 20 * m) * 0.5,  # rough
+            "internal_loans": "$500–$2K test loans between founders",
+            "external_target": "NONE — build internal track record first",
+            "external_purpose": "",
+            "milestone": "Cooperative exists. $150K in cash. $1M collateral.",
+            "key_metric": "internal payment history",
+        },
+        {
+            "name": "Inner Circle",
+            "month": 6,
+            "members": 7,
+            "description": "5 family/friends join at $20/mo each",
+            "death_benefit_calc": lambda m: 2 * founder_coverage + 5 * member_coverage,
+            "pool_est": lambda m: founder_lump + 3_000,
+            "internal_loans": "$1K–$5K to members (test credit unlock model)",
+            "external_target": "NONE — still too early",
+            "external_purpose": "",
+            "milestone": "7 members. Group discount kicks in at 10.",
+            "key_metric": "6 months on-time payments",
+        },
+        {
+            "name": "Track Record",
+            "month": 12,
+            "members": 12,
+            "description": "5 more join. 12 months of clean books.",
+            "death_benefit_calc": lambda m: 2 * founder_coverage + 10 * member_coverage,
+            "pool_est": lambda m: founder_lump + 8_000,
+            "internal_loans": "Up to $5K per member. ~$15K–$30K total outstanding.",
+            "external_target": "CDFI relationship loan: $10K–$25K",
+            "external_purpose": "Capacity building. Prove cooperative can service debt.\nBorrow small, repay perfectly. This is the foot in the door.",
+            "milestone": "12 months payment history. CDFI relationship established.",
+            "key_metric": "CDFI approves first loan",
+        },
+        {
+            "name": "Credibility",
+            "month": 24,
+            "members": 22,
+            "description": "10 more join. 2 years of track record.",
+            "death_benefit_calc": lambda m: 2 * founder_coverage + 20 * member_coverage,
+            "pool_est": lambda m: founder_lump + 20_000,
+            "internal_loans": "Up to $10K per member. ~$50K–$80K outstanding.",
+            "external_target": "Credit union line of credit: $50K–$100K\nOR: CDFI pre-qualification for mortgage",
+            "external_purpose": "Demonstrate ability to manage revolving credit.\nLine of credit shows discipline: borrow, repay, repeat.\nAlso: begin mortgage conversations.",
+            "milestone": "2yr track record. Revolving credit managed. Mortgage pipeline started.",
+            "key_metric": "qualify for mortgage pre-approval",
+        },
+        {
+            "name": "Property Acquisition",
+            "month": 36,
+            "members": 37,
+            "description": "15 more join. Buy the brownstone.",
+            "death_benefit_calc": lambda m: 2 * founder_coverage + 35 * member_coverage,
+            "pool_est": lambda m: founder_lump + 35_000,
+            "internal_loans": "Up to $15K per member. ~$80K–$120K outstanding.",
+            "external_target": "Mortgage: $960K on $1.2M brownstone (20% down)",
+            "external_purpose": "4 members move in. Carrying charges cover the mortgage.\n$1,631/mo per unit vs $2,500 market rent = $869/mo savings.\nDeath benefit collateral makes this a very safe loan for the lender.",
+            "milestone": "Property acquired. 4 housing members. Carrying charges flowing.",
+            "key_metric": "on-time mortgage payments",
+        },
+        {
+            "name": "Expansion",
+            "month": 60,
+            "members": 52,
+            "description": "15 more join. Refinance or buy #2.",
+            "death_benefit_calc": lambda m: 2 * founder_coverage + 50 * member_coverage,
+            "pool_est": lambda m: founder_lump + 55_000,
+            "internal_loans": "Up to $75K per member (hitting death benefit cap).",
+            "external_target": "Refinance at lower rate (5% → 4.5%)\nOR: second mortgage for brownstone #2",
+            "external_purpose": "3 years of perfect mortgage payments → better rate.\n0.5% lower rate on $960K = $300/mo savings = $108K over 30yr.\nSecond property: more housing slots, more carrying charges, more assets.",
+            "milestone": "501(c)(8) eligible. Multiple properties. Self-sustaining.",
+            "key_metric": "lower cost of capital each cycle",
+        },
+    ]
+
+    for phase in phases:
+        members = phase["members"]
+        month = phase["month"]
+        db = phase["death_benefit_calc"](month)
+        pool = phase["pool_est"](month)
+
+        # Use actual sim data if available
+        if results and month <= len(results):
+            snap = results[month - 1]
+            pool = snap["pool_value"]
+            db = snap.get("death_benefit", db)
+            members = snap.get("member_count", members)
+
+        # Internal lending capacity
+        reserve = pool * 0.15
+        lendable = pool - reserve
+
+        # Monthly drip at this membership level
+        monthly_drip = members * 20
+        annual_drip = monthly_drip * 12
+
+        print(f"\n{'─' * 85}")
+        print(f"  PHASE: {phase['name'].upper()} (Month {month}, {members} members)")
+        print(f"  {phase['description']}")
+        print(f"{'─' * 85}")
+
+        print(f"\n  Balance Sheet:")
+        print(f"    Cash (pool):              ${pool:>12,.0f}")
+        print(f"    Reserves (15%):           ${reserve:>12,.0f}")
+        print(f"    Lendable:                 ${lendable:>12,.0f}")
+        print(f"    Death benefit collateral: ${db:>12,.0f}  (off-balance-sheet)")
+        print(f"    Monthly drip:             ${monthly_drip:>12,.0f}/mo  (${annual_drip:,.0f}/yr)")
+
+        print(f"\n  Internal Lending:")
+        print(f"    {phase['internal_loans']}")
+        print(f"    Each loan = asset on balance sheet, backed by {db / max(1, members) / 1000:.0f}K death benefit per member")
+
+        print(f"\n  External Loan Target:")
+        for line in phase["external_target"].split("\n"):
+            print(f"    → {line}")
+        if phase["external_purpose"]:
+            for line in phase["external_purpose"].split("\n"):
+                print(f"      {line}")
+
+        print(f"\n  Milestone: {phase['milestone']}")
+        print(f"  Key metric: {phase['key_metric']}")
+
+    # Why loans create assets
+    print(f"\n{'═' * 85}")
+    print(f"  HOW INTERNAL LOANS CREATE CREDITWORTHINESS")
+    print(f"{'═' * 85}")
+
+    print(f"""
+  When the cooperative lends $5K to a member:
+
+    BEFORE                              AFTER
+    ┌─────────────────────┐             ┌─────────────────────┐
+    │ Cash:      $175,000 │             │ Cash:      $170,000 │
+    │ Loans:           $0 │             │ Loans:       $5,000 │
+    │ Total:     $175,000 │             │ Total:     $175,000 │
+    └─────────────────────┘             └─────────────────────┘
+
+  Total assets unchanged. But now:
+  - The $5K is a receivable backed by $100K death benefit (20x collateral)
+  - The member repays $20 + 1% of balance each month → cash flows back
+  - The member spends the $5K → some returns to the cooperative ecosystem
+  - When the next lender evaluates the coop: they see PERFORMING LOANS
+
+  A bank with $175K in cash is fine.
+  A bank with $170K in cash + $5K in performing loans is BETTER.
+  It proves the institution can underwrite, service, and collect debt.
+
+  This is the track record that unlocks the mortgage.""")
+
+    # Membership targets
+    print(f"\n{'═' * 85}")
+    print(f"  MEMBERSHIP TARGETS — WHY EACH NUMBER MATTERS")
+    print(f"{'═' * 85}")
+
+    targets = [
+        (2, "$1M collateral", "Minimum viable cooperative. Both founders insured."),
+        (10, "$2M collateral", "Group insurance discount kicks in (saves ~15% on premiums)."),
+        (12, "$2M collateral", "12 members × $20/mo = $240/yr drip. Enough for CDFI conversation."),
+        (22, "$3M collateral", "Enough for mortgage DSCR. 4 housing + 18 non-housing."),
+        (25, "$3.5M collateral", "Full group discount (30% off). 501(c)(8) eligibility (25+ members)."),
+        (37, "$4.5M collateral", "Comfortable DSCR margin. $740/mo drip beyond housing costs."),
+        (52, "$6M collateral", "$1,040/mo drip. Multiple properties feasible. Self-sustaining."),
+        (100, "$11M collateral", "$2,000/mo drip. Third property. Regional cooperative."),
+    ]
+
+    print(f"\n  {'Members':>8} {'Collateral':>16} {'Why It Matters'}")
+    print(f"  {'-'*8} {'-'*16} {'-'*50}")
+    for count, collateral, why in targets:
+        drip = count * 20
+        print(f"  {count:>8} {collateral:>16}  {why}")
+        print(f"  {'':>8} {'':>16}  Drip: ${drip:,}/mo = ${drip*12:,}/yr")
+
+    # The DSCR math for the brownstone
+    print(f"\n{'═' * 85}")
+    print(f"  MORTGAGE MATH — CAN THE COOPERATIVE CARRY IT?")
+    print(f"{'═' * 85}")
+
+    purchase = 1_200_000
+    down = 240_000
+    mortgage = purchase - down
+    rate = 0.06
+    r = rate / 12
+    payment = mortgage * (r * (1 + r) ** 360) / ((1 + r) ** 360 - 1)
+    taxes = purchase * 0.012 / 12
+    insurance = 300
+    maintenance = purchase * 0.01 / 12
+    total_carrying = payment + taxes + insurance + maintenance
+    per_unit = total_carrying / 4
+
+    print(f"\n  $1.2M Brownstone, 4 units, 20% down, {rate:.0%} rate:")
+    print(f"    Mortgage payment:    ${payment:>8,.0f}/mo")
+    print(f"    Taxes:               ${taxes:>8,.0f}/mo")
+    print(f"    Insurance:           ${insurance:>8,.0f}/mo")
+    print(f"    Maintenance:         ${maintenance:>8,.0f}/mo")
+    print(f"    Total:               ${total_carrying:>8,.0f}/mo")
+    print(f"    Per unit:            ${per_unit:>8,.0f}/mo  (vs $2,500 market rent)")
+    print(f"    Member saves:        ${2500 - per_unit:>8,.0f}/mo  (${(2500 - per_unit) * 12:,.0f}/yr)")
+
+    # DSCR at different membership levels
+    print(f"\n  DSCR (Debt Service Coverage Ratio) — lenders want > 1.20")
+    print(f"  {'Members':>8} {'Housing Income':>15} {'Dues Income':>12} {'Total':>10} {'DSCR':>6}")
+    print(f"  {'-'*8} {'-'*15} {'-'*12} {'-'*10} {'-'*6}")
+
+    for member_count in [12, 22, 37, 52]:
+        housing_income = 4 * per_unit
+        non_housing = member_count - 4
+        dues = non_housing * 20
+        total_income = housing_income + dues
+        dscr = total_income / total_carrying
+        status = "✓" if dscr >= 1.20 else "thin"
+        print(f"  {member_count:>8} ${housing_income:>13,.0f} ${dues:>10,.0f} ${total_income:>8,.0f} {dscr:>5.2f} {status}")
+
+    print(f"\n  Note: DSCR looks thin because carrying charges = costs (by design).")
+    print(f"  The $20/mo drip from non-housing members pushes DSCR above 1.0.")
+    print(f"  What makes this work for lenders:")
+    print(f"    - Death benefit collateral backing the mortgage (millions)")
+    print(f"    - Carrying charges are contractual member obligations")
+    print(f"    - Pool cash available as additional reserve")
+    print(f"    - CDFI/community lenders evaluate collateral, not just DSCR")
+
+    print()
+    print("=" * 85)

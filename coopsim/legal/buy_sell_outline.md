@@ -78,7 +78,7 @@
 
 ### 3.5 Other Adjustments
 - Plus: pro-rata appreciation on property (limited equity cap)
-- Minus: outstanding obligations, unvested portion
+- Minus: outstanding obligations (loans), unvested portion
 - Minus: pro-rata share of cooperative liabilities
 - Independent valuation for disputes (cost split between parties)
 
