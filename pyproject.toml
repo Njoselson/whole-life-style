@@ -1,0 +1,9 @@
+[project]
+name = "whole-life-style"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.11.11"
+dependencies = [
+    "pandas>=2.3.3",
+    "streamlit>=1.55.0",
+]
